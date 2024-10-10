@@ -8,9 +8,13 @@ Task Description
 
 This project operates through three main components:
 
-Real-Time Visualization: Data received from the server via WebSocket is processed instantly and displayed on the graph using Chart.js. This visualization graphically shows the positions of the LORAN stations and the moving object over time.
+Real-Time Visualization: 
 
-Parameter Updates with User Inputs: The user can change the object’s speed, station coordinates, and LORAN parameters through input forms located on the right side. These inputs are sent to the server, allowing for real-time data updates.
+Data received from the server via WebSocket is processed instantly and displayed on the graph using Chart.js. This visualization graphically shows the positions of the LORAN stations and the moving object over time.
+
+Parameter Updates with User Inputs:
+
+The user can change the object’s speed, station coordinates, and LORAN parameters through input forms located on the right side. These inputs are sent to the server, allowing for real-time data updates.
 
 Calculating Object Position Using the Least Squares Method: The estimated position of the object is calculated based on signal times received from three LORAN stations and added to the visualization.
 
