@@ -1,9 +1,11 @@
 LORAN-Measurement-Visualization-App-Development
 
 Project Purpose
+
 The purpose of this project is to visualize measurements made with the LORAN (Long Range Navigation) system and to allow the user to interactively change system parameters. By using WebSockets and Chart.js, the project aims to display and analyze specific measurement data in real-time on a graph. The user can instantly update the visualized data by changing the object's speed and the coordinates of the LORAN stations.
 
 Task Description
+
 This project operates through three main components:
 
 Real-Time Visualization: Data received from the server via WebSocket is processed instantly and displayed on the graph using Chart.js. This visualization graphically shows the positions of the LORAN stations and the moving object over time.
@@ -35,7 +37,6 @@ The service supports an API for modifying and retrieving the following parameter
 Retrieving the configuration via GET request: The current configuration with emulation zone parameters and object speed can be obtained using a GET request:
 
 curl http://localhost:4002/config
-
 
 Modifying the object speed via POST request:
 
