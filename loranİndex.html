@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LORAN Measurement Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 1200px;
+        }
+
+        .left-section {
+            text-align: center;
+            flex: 1;
+        }
+
+        .right-section {
+            width: 300px;
+            margin-left: 30px; /* Sağ tarafın 30 birim uzakta olmasını sağlar */
+            margin-top: 70px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-size: 16px;
+            color: #555;
+            margin-right: 10px;
+        }
+
+        input[type="number"], input[type="text"] {
+            padding: 8px;
+            margin: 5px 0 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+        <div class="container">
+            <!-- Sol tarafa konumlanacak içerik (Tablo vs.) -->
+            <div class="left-section">
+                <h1>LORAN Measurement Visualization</h1>
+                <!-- Chart canvas -->
+                <canvas id="loranCanvas" width="900" height="600"></canvas>
+            </div>
+    
+            <!-- Sağ tarafa 30 birim uzaklıkta olacak inputlar -->
+            <div class="right-section">
+                <!-- Input for changing object speed -->
+                <div class="input-group">
+                    <label for="objectSpeed">Object Speed (km/h):</label>
+                    <input type="number" id="objectSpeed" value="100">
+                    <button onclick="changeObjectSpeed()">Change Object Speed</button>
+                </div>
+    
+                <!-- Additional inputs for station coordinates -->
+                <div class="input-group">
+                    <label for="station1Coords">Station 1 Coordinates (x, y):</label>
+                    <input type="text" id="station1Coords" value="0,0">
+                    <label for="station2Coords">Station 2 Coordinates (x, y):</label>
+                    <input type="text" id="station2Coords" value="5,0">
+                    <label for="station3Coords">Station 3 Coordinates (x, y):</label>
+                    <input type="text" id="station3Coords" value="0,5">
+                    <button id="updateCoordsButton" onclick="updateStationCoordinates()">Update Coordinates</button>
+                </div>
+    
+                <!-- Inputs for LORAN Parameters -->
+                <div class="input-group">
+                    <label for="loranParam1">LORAN Param 1:</label>
+                    <input type="number" id="loranParam1" value="50">
+                    <label for="loranParam2">LORAN Param 2:</label>
+                    <input type="number" id="loranParam2" value="100">
+                    <button onclick="updateLORANParams()">Update LORAN Parameters</button>
+                </div>
+            </div>
+        </div>
+    <script>
+        // WebSocket setup
+        const ws = new WebSocket('ws://localhost:4002');
+
+        ws.onopen = function() {
+            console.log('WebSocket connection opened');
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+
+        function changeObjectSpeed() {
+            const speed = document.getElementById('objectSpeed').value;
+            const data = { objectSpeed: parseInt(speed) };
+
+            fetch('http://localhost:4002/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(data => console.log('Object speed changed:', data))
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Chart.js initialization
+        const ctx = document.getElementById('loranCanvas').getContext('2d');
+        const loranChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Base Stations',
+                    data: [],
+                    backgroundColor: 'blue',
+                    showLine: true,  // Show line connecting points
+                }, {
+                    label: 'Object',
+                    data: [],
+                    backgroundColor: 'red',
+                    pointStyle: 'triangle'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: 'X Coordinate' } },
+                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Y Coordinate' } }
+                }
+            }
+        });
+
+        // Source ID map for Y-axis
+        const sourceIdMap = { 'source1': 1, 'source2': 2, 'source3': 3 };
+
+        // Different colors for each base station
+        const colors = ['blue', 'green', 'yellow'];
+
+        ws.onmessage = function(event) {
+            const message = JSON.parse(event.data);
+            console.log('Received message:', message);
+
+            const receivedAt = message.receivedAt;
+            const sourceY = sourceIdMap[message.sourceId] || 0;
+
+            if (message.sourceId.startsWith('source')) {
+                const baseStationIndex = parseInt(message.sourceId.slice(-1)) - 1;
+                loranChart.data.datasets[0].data.push({
+                    x: receivedAt,
+                    y: sourceY
+                });
+
+                loranChart.data.datasets[0].pointBackgroundColor = loranChart.data.datasets[0].data.map((_, index) => colors[index % colors.length]);
+            } else if (message.sourceId === 'object') {
+                loranChart.data.datasets[1].data = [{ x: receivedAt, y: sourceY }];
+            }
+
+            loranChart.update();
+        };
+
+        // Function to parse coordinates
+        function parseCoordinates(inputId) {
+            const coords = document.getElementById(inputId).value.split(',');
+            return { x: parseFloat(coords[0]), y: parseFloat(coords[1]) };
+        }
+
+        // Least Squares Calculation Function (Dummy Example)
+        function calculateObjectPosition(station1, station2, station3, signalTimes) {
+            // Burada least squares veya gradient descent uygulanabilir
+            // Basit bir örnekle; bu sadece bir dummy hesaplamadır
+            const x = (station1.x + station2.x + station3.x) / 3;
+            const y = (station1.y + station2.y + station3.y) / 3;
+            return { x, y };
+        }
+
+        // Function to update station coordinates and recalculate object position
+        function updateStationCoordinates() {
+            const station1 = parseCoordinates('station1Coords');
+            const station2 = parseCoordinates('station2Coords');
+            const station3 = parseCoordinates('station3Coords');
+
+            const baseStations = [station1, station2, station3];
+            const signalTimes = [10, 15, 20]; // Placeholder times
+
+            const objectPosition = calculateObjectPosition(station1, station2, station3, signalTimes);
+
+            console.log('Updated Object Position:', objectPosition);
+
+            loranChart.data.datasets[0].data = [
+                { x: station1.x, y: station1.y, backgroundColor: 'blue' },
+                { x: station2.x, y: station2.y, backgroundColor: 'green' },
+                { x: station3.x, y: station3.y, backgroundColor: 'yellow' }
+            ];
+
+            loranChart.data.datasets[1].data = [{ x: objectPosition.x, y: objectPosition.y, backgroundColor: 'red' }];
+
+            loranChart.update();
+        }
+
+        // Update LORAN parameters
+        function updateLORANParams() {
+            const param1 = document.getElementById('loranParam1').value;
+            const param2 = document.getElementById('loranParam2').value;
+
+            const params = { param1: parseFloat(param1), param2: parseFloat(param2) };
+
+            fetch('http://localhost:4002/loranParams', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params),
+            })
+            .then(response => response.json())
+            .then(data => console.log('LORAN params updated:', data))
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Attach event listener to the button
+        document.getElementById('updateCoordsButton').onclick = updateStationCoordinates;
+
+    </script>
+</body>
+</html>
