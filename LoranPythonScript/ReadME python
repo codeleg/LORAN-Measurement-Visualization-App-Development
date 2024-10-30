@@ -1,0 +1,11 @@
+# SPEED_OF_LIGHT: Işığın hızını m/s cinsinden tanımlar.
+# tdoa_error: Verilen koordinatlarda (x, y) alıcının tahmini konumu ile üç temel istasyon arasındaki zaman farklarını hesaplar.
+# loss_function: Hedef konum ile tahmin edilen konum arasındaki hatayı hesaplar.
+# custom_least_squares: En küçük kareler yöntemini kullanarak, verilen zaman farklarına dayanarak alıcının en iyi tahmini konumunu bulur.
+# Veri Alma ve İşleme:
+
+# get_loran_data: WebSocket üzerinden gerçek zamanlı veri alır ve bu verileri kullanarak alıcının konumunu hesaplar ve bir grafikte gösterir.
+# process_received_data: Alınan verilerde gerekli anahtarların olup olmadığını kontrol eder ve eksik olanlara varsayılan değerler atar.
+# Ana Program Akışı:
+
+# asyncio.run(get_loran_data()): Asenkron bir döngü ile get_loran_data fonksiyonu çalıştırılır
